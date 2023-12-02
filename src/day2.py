@@ -3,11 +3,12 @@ import re
 import sys
 from dataclasses import dataclass
 
+from collections import Counter
 
 @dataclass
 class DrawingGame:
     id: int
-    draws: list[dict]
+    draws: list[Counter]
 
     @classmethod
     def from_input_line(cls, line: str):
@@ -17,34 +18,35 @@ class DrawingGame:
         parsed_draws = []
         for draw_str in draw_str.split(";"):
             matches = re.findall(r"(\d+) (blue|red|green)", draw_str)
-            parsed_draws.append({col: int(count) for count, col in matches})
+            parsed_draws.append(Counter({col: int(count) for count, col in matches}))
 
         return cls(id=game_id, draws=parsed_draws)
 
-    def is_valid_game(self, bag_contents: dict) -> bool:
+    def is_valid_game(self, bag_contents: Counter) -> bool:
         for draw in self.draws:
-            for col, num in bag_contents.items():
-                if draw.get(col, 0) > num:
-                    return False
+            # Wanted to try Counter diff, but requiring the copy is not so nice.
+            # (bag_contents - draw) doesn't work, because it's more of a set diff.
+            bag_diff = Counter(bag_contents)
+            bag_diff.subtract(draw)
+            if min(bag_diff.values()) < 0:
+                return False
 
         return True
 
     def min_cubes_necessary(self) -> dict:
-        result = {"green": 0, "red": 0, "blue": 0}
+        result = Counter()
 
         for draw in self.draws:
-            for color, count in draw.items():
-                result[color] = max(result[color], count)
+            result |= draw
 
         return result
 
 
-bag_contents = {
+bag_contents = Counter({
     "red": 12,
     "green": 13,
     "blue": 14,
-    }
-
+    })
 
 lines = [line.strip() for line in open(sys.argv[1]).readlines()]
 games = [DrawingGame.from_input_line(line) for line in lines]
