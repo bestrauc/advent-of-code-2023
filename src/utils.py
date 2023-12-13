@@ -11,3 +11,6 @@ def nums(line: str) -> list[int]:
 def input_dim(inp: list[str]) -> tuple[int, int]:
     """Return (height, width) of a 2D input."""
     return len(inp), len(inp[0])
+
+def transpose(l: list[list]) -> list[list]:
+    return list(map(list, zip(*l)))
