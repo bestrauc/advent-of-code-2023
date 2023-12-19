@@ -1,5 +1,12 @@
 import re
 
+def split_list_at(l: list, pat: str) -> list[list]:
+    try:
+        idx = l.index(pat)
+    except ValueError:
+        return [l]
+
+    return [l[:idx]] + split_list_at(l[idx + 1 :], pat)
 
 def read_puzzle_input(input_path: str) -> list[str]:
     return [l.strip() for l in open(input_path).readlines()]

@@ -7,15 +7,6 @@ import utils
 puzzle_input = list(map(list, utils.read_puzzle_input(sys.argv[1])))
 
 
-def split_list_at(l: list, pat: str) -> list[list]:
-    try:
-        idx = l.index(pat)
-    except ValueError:
-        return [l]
-
-    return [l[:idx]] + split_list_at(l[idx + 1 :], pat)
-
-
 def reflects(row: str, reflect_idx: int) -> bool:
     """Check if a string has a reflection at the given position.
     
@@ -55,7 +46,7 @@ def unsmuged_reflection_gen(pattern: list[str]) -> Iterator[list[str]]:
             pattern[i][j] = c
 
 
-patterns = split_list_at(puzzle_input, pat=[])
+patterns = utils.split_list_at(puzzle_input, pat=[])
 
 # Part 1 is straightforward.
 vert_acc = 0
