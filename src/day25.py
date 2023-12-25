@@ -1,11 +1,18 @@
 import sys
-import utils
 from collections import defaultdict
-from pprint import pprint
-
+from dataclasses import dataclass, field
 from heapq import *
+from pprint import pprint
+from typing import Any
 
-from tqdm import tqdm
+import utils
+
+
+@dataclass(order=True)
+class PrioritizedItem:
+    priority: int
+    item: Any = field(compare=False)
+
 
 def min_cut(graph: dict, weights: dict) -> tuple[set, set, int]:
     """Stoer & Wagner minimum cut algorithm."""
@@ -14,20 +21,29 @@ def min_cut(graph: dict, weights: dict) -> tuple[set, set, int]:
     s = list(graph.keys())[:1]
 
     # Store distances to set S in a heap.
-    dists_to_s = [(-weights[s[0],v], v) for v in graph[s[0]]]
-    breakpoint()
+    dists_to_s = {v: weights[s[0], v] for v in graph[s[0]]}
+    dist_heap = [PrioritizedItem(-dists_to_s[v], v) for v in graph[s[0]]]
+    heapify(dist_heap)
 
     # Iteratively add the strongest connected.
-    for _ in tqdm(range(len(graph)-1)):
-        strongest_connected = None
-        strongest_dist = 0
-        for v1 in graph.keys() - s:
-            dist_to_s = sum([weights.get((v1, v2), 0) for v2 in s])
-            if strongest_dist < dist_to_s:
-                strongest_connected = v1
-                strongest_dist = dist_to_s
+    while len(s) < len(graph):
+        prio_item = heappop(dist_heap)
+        strongest_connected = prio_item.item
+        strongest_dist = -1 * prio_item.priority
+
+        # Deal with a node being added multiple times to the heap. If we
+        # already consumed it with a higher distance, ignore later ones.
+        if strongest_connected in s:
+            continue
 
         s.append(strongest_connected)
+
+        # Now we have to add the neighbors of the strongest connected
+        # to the heap or update their weights.
+        for v in graph[strongest_connected]:
+            dists_to_s.setdefault(v, 0)
+            dists_to_s[v] += weights[strongest_connected, v]
+            heappush(dist_heap, PrioritizedItem(-dists_to_s[v], v))
 
     # Merge the last two in s.
     merge_nodes(s[-1], s[-2], graph, weights)
@@ -57,25 +73,33 @@ def merge_nodes(v1, v2, graph: dict, weights: dict):
         graph[v] = graph[v] - {v1, v2}
 
 
-test_graph = {
-    1: [(2, 2), (5, 3)],
-    2: [(1, 2), (5, 2), (6, 2), (3, 3)],
-    3: [(2, 3), (7, 2), (4, 4)],
-    4: [(3, 4), (7, 2), (8, 2)],
-    5: [(1, 3), (2, 2), (6, 3)],
-    6: [(5, 3), (2, 2), (7, 1)],
-    7: [(6, 1), (3, 2), (4, 2), (8, 3)],
-    8: [(7, 3), (4, 2)],
-}
+def test_stoer_wagner():
+    """Test my Stoer-Wagner algorithm implementation.
 
-weights = {(v1, v2): w for (v1, ns) in test_graph.items() for (v2, w) in ns}
-graph = {v1: {v2 for (v2, _) in ns} for (v1, ns) in test_graph.items()}
+    I've implemented the minimum-cut algorithm based on these lecture slides:
+    https://i11www.iti.kit.edu/_media/teaching/winter2012/algo2/vorlesung5.pdf
 
-#while len(graph) > 1:
-#    print(min_cut(graph, weights))
+    I used the example graph to validate that my implementation seems correct.
+    """
+    test_graph = {
+        1: [(2, 2), (5, 3)],
+        2: [(1, 2), (5, 2), (6, 2), (3, 3)],
+        3: [(2, 3), (7, 2), (4, 4)],
+        4: [(3, 4), (7, 2), (8, 2)],
+        5: [(1, 3), (2, 2), (6, 3)],
+        6: [(5, 3), (2, 2), (7, 1)],
+        7: [(6, 1), (3, 2), (4, 2), (8, 3)],
+        8: [(7, 3), (4, 2)],
+    }
 
-#pprint(graph)
-#pprint(weights) 
+    weights = {(v1, v2): w for (v1, ns) in test_graph.items() for (v2, w) in ns}
+    graph = {v1: {v2 for (v2, _) in ns} for (v1, ns) in test_graph.items()}
+
+    # pprint(graph)
+    # pprint(weights)
+
+    while len(graph) > 1:
+        print(min_cut(graph, weights))
 
 
 def main():
@@ -92,6 +116,7 @@ def main():
             weights[(node, conn)] = 1
             weights[(conn, node)] = 1
 
+    original_size = len(graph)
     min_cut_weight = sys.maxsize
     min_cut_set = None
     while len(graph) > 1:
@@ -102,6 +127,19 @@ def main():
             min_cut_set = set(cut1)
             min_cut_weight = cut_weight
 
-    print(min_cut_set, min_cut_weight)
+        # Save a bit of time.
+        if cut_weight == 3:
+            break
+
+    cut_set_size = len(list(flatten(min_cut_set)))
+    print(cut_set_size, original_size - cut_set_size, min_cut_weight)
+
+
+def flatten(d):
+    """My implementation ends up with many merged nodes -> unmerge to count them."""
+
+    for i in d:
+        yield from [i] if not isinstance(i, tuple) else flatten(i)
+
 
 main()
